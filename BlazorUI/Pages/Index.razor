@@ -1,0 +1,215 @@
+﻿@page "/"
+@using Homework2Library.Models
+@using Homework2Library
+
+<PageTitle>Index</PageTitle>
+
+<h1>Student Table App</h1>
+
+<ul>
+    <b>Tools Used:</b>
+    <li>Web Framework: Blazor Server (.NET 7)</li>
+    <li>Back-End Code: C# (.NET 7)</li>
+    <li>Database: SQLite</li>
+</ul>
+
+
+<h6><b>Create a New Student</b></h6>
+<EditForm Model="student" OnValidSubmit="@SetStudent">
+    <InputText @bind-Value="student.Name" placeholder="Name" />
+    <InputText @bind-Value="createStringId" placeholder="Id"/>
+    <InputText @bind-Value="createStringPoints" placeholder="Points" />
+    <button class="btn btn-primary" type="submit">Create Student</button>
+</EditForm>
+
+<br />
+
+<h6><b>Update a Student's Data</b></h6>
+<EditForm Model="student" OnValidSubmit="UpdateName">
+    <InputText @bind-Value="updateStringIdForName" placeholder="Id to update" />
+    <InputText @bind-Value="newName" placeholder="New name" />
+    <button class="btn btn-primary" type="submit">Update Name</button>
+</EditForm>
+
+<EditForm Model="student" OnValidSubmit="UpdatePoints">
+    <InputText @bind-Value="updateStringIdForPoints" placeholder="Id to update" />
+    <InputText @bind-Value="newPointsString" placeholder="New points" />
+    <button class="btn btn-primary" type="submit">Update Points</button>
+</EditForm>
+
+<br />
+
+<h6><b>Delete a Student</b></h6>
+<EditForm Model="student" OnValidSubmit="RemoveStudent">
+    <InputText @bind-Value="deleteStringId" placeholder="Id to delete" />
+    <button class="btn btn-primary" type="submit">Delete Student</button>
+</EditForm>
+
+<table class="table table-striped">
+    <thead class="thead-dark">
+        <tr>
+            <th>Name</th>
+            <th>Id (primary key)</th>
+            <th>Points</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var currStudent in studentList)
+        {
+            <tr>
+                <td>@currStudent.Name</td>
+                <td>@currStudent.Id</td>
+                <td>@currStudent.Points</td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+<p><i>Developed by Preston Viado</i></p>
+
+@code
+{
+    StudentModel student = new();
+    List<StudentModel> studentList = new();
+    BasicCRUD crud = new();
+    string filePath = GetConnectionString();
+    string createStringId = "";
+    string createStringPoints = "";
+    string updateStringIdForName = "";
+    string updateStringIdForPoints = "";
+    string deleteStringId = "";
+    string newName = "";
+    string newPointsString = "";
+    private static readonly string tableName = "Students";
+
+    // CREATE
+    private async Task SetStudent()
+    {
+        student.Id = typeConversion(createStringId);
+        if (doesExist(student.Id) == true) // check if the Id is already taken
+        {
+            Console.WriteLine($"Error: Id {student.Id} already exists");
+        }
+        else
+        {
+            student.Points = typeConversion(createStringPoints);
+            crud.CreateStudent(filePath, tableName, student);
+            await RetrieveStudents();
+        }
+
+        // clear the InputText
+        student.Id = 0;
+        student.Name = "";
+        student.Points = 0;
+        createStringId = "";
+        createStringPoints = "";
+    }
+
+    // RETRIEVE
+    private async Task RetrieveStudents()
+    {
+        studentList = crud.ReadAllStudents(filePath, tableName, studentList);
+    }
+
+    // UPDATE (NAME)
+    private async Task UpdateName()
+    {
+        student.Id = typeConversion(updateStringIdForName);
+
+        if (doesExist(student.Id) == false)
+        {
+            Console.WriteLine($"Error: Id {student.Id} does not exist");
+        }
+        else
+        {
+            crud.UpdateName(filePath, tableName, student.Id, newName);
+            await RetrieveStudents();
+        }
+
+        // clear the InputText
+        newName = "";
+        updateStringIdForName = "";
+    }
+
+    // UPDATE (POINTS)
+    private async Task UpdatePoints()
+    {
+        student.Id = typeConversion(updateStringIdForPoints);
+
+        if (doesExist(student.Id) == false)
+        {
+            Console.WriteLine($"Error: Id {student.Id} does not exist");
+        }
+        else
+        {
+            int newPoints = typeConversion(newPointsString);
+            crud.UpdatePoints(filePath, tableName, student.Id, newPoints);
+            await RetrieveStudents();
+        }
+
+        // clear InputText
+        newPointsString = "";
+        updateStringIdForPoints = "";
+    }
+
+    // DELETE
+    private async Task RemoveStudent()
+    {
+        student.Id = typeConversion(deleteStringId);
+        if (doesExist(student.Id) == false)
+        {
+            Console.WriteLine($"Error: Id {student.Id} does not exist");
+        }
+        else
+        {
+            crud.DeleteStudent(filePath, tableName, student.Id);
+            await RetrieveStudents();
+        }
+
+        // clear the InputText
+        deleteStringId = "";
+    }
+
+    // to convert string variables to int variables
+    private int typeConversion(string stringInput)
+    {
+        int intInput;
+        bool isValidInt = int.TryParse(stringInput, out intInput);
+        return intInput;
+    }
+
+    // prevent duplicate records from inserting
+    private bool doesExist(int inputedId)
+    {
+        foreach (var currStudent in studentList)
+        {
+            if (currStudent.Id == inputedId)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    // to get the connection string from the JSON file: appsettings.json
+    private static string GetConnectionString(string connectionStringName = "Default")
+    {
+        string output = "";
+
+        var builder = new ConfigurationBuilder()
+            .SetBasePath(Directory.GetCurrentDirectory())
+            .AddJsonFile("appsettings.json"); // ensure that appsettings.json properties is set to "copy if newer"
+
+        var config = builder.Build();
+
+        output = config.GetConnectionString(connectionStringName);
+
+        return output;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RetrieveStudents();
+    }
+}
